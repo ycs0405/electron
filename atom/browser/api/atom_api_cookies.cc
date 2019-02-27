@@ -217,8 +217,36 @@ void SettlePromiseInUI(util::Promise promise, const std::string& errmsg) {
 }
 
 // Callback of SetCookie.
-void OnSetCookie(util::Promise promise, bool success) {
-  const std::string errmsg = success ? "" : "Setting cookie failed";
+void OnSetCookie(util::Promise promise,
+                 net::CanonicalCookie::CookieInclusionStatus status) {
+  std::string errmsg;
+  switch (status) {
+    case net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_HTTP_ONLY:
+      errmsg = "Failed to create httponly cookie";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_SECURE_ONLY:
+      errmsg = "Cannot create a secure cookie from an insecure URL";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_FAILURE_TO_STORE:
+      errmsg = "Failed to parse cookie";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_INVALID_DOMAIN:
+      errmsg = "Failed to get cookie domain";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_INVALID_PREFIX:
+      errmsg = "Failed because the cookie violated prefix rules.";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::
+        EXCLUDE_NONCOOKIEABLE_SCHEME:
+      errmsg = "Cannot set cookie for current scheme";
+      break;
+    case net::CanonicalCookie::CookieInclusionStatus::INCLUDE:
+      errmsg = "";
+      break;
+    default:
+      errmsg = "Setting cookie failed";
+      break;
+  }
   RunCallbackInUI(
       base::BindOnce(SettlePromiseInUI, std::move(promise), errmsg));
 }
@@ -278,15 +306,21 @@ void SetCookieOnIO(scoped_refptr<net::URLRequestContextGetter> getter,
           net::CookieSameSite::DEFAULT_MODE, net::COOKIE_PRIORITY_DEFAULT));
   auto completion_callback = base::BindOnce(OnSetCookie, std::move(promise));
   if (!canonical_cookie || !canonical_cookie->IsCanonical()) {
-    std::move(completion_callback).Run(false);
+    std::move(completion_callback)
+        .Run(net::CanonicalCookie::CookieInclusionStatus::
+                 EXCLUDE_FAILURE_TO_STORE);
     return;
   }
   if (url.is_empty()) {
-    std::move(completion_callback).Run(false);
+    std::move(completion_callback)
+        .Run(net::CanonicalCookie::CookieInclusionStatus::
+                 EXCLUDE_INVALID_DOMAIN);
     return;
   }
   if (name.empty()) {
-    std::move(completion_callback).Run(false);
+    std::move(completion_callback)
+        .Run(net::CanonicalCookie::CookieInclusionStatus::
+                 EXCLUDE_FAILURE_TO_STORE);
     return;
   }
   GetCookieStore(getter)->SetCanonicalCookieAsync(
