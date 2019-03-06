@@ -335,7 +335,7 @@ describe('session module', () => {
           storages: ['localstorage'],
           quotas: ['persistent']
         }
-        w.webContents.session.clearStorageData(options, () => {
+        w.webContents.session.clearStorageData(options).then(() => {
           w.webContents.send('getcount')
         })
       })
