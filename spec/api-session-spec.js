@@ -617,7 +617,7 @@ describe('session module', () => {
     let server = null
     let customSession = null
 
-    beforeEach((done) => {
+    beforeEach(() => {
       customSession = session.fromPartition('proxyconfig')
       // FIXME(deepak1556): This is just a hack to force
       // creation of request context which in turn initializes
